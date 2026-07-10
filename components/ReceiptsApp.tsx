@@ -57,6 +57,20 @@ export function ReceiptsApp({
           <div className="rounded-xl border border-dashed border-neutral-300 p-10 text-center text-neutral-500">
             <p className="text-lg">📥 Upload your first receipt</p>
             <p className="mt-1 text-sm">Drop an image above to get started.</p>
+            <div className="mx-auto mt-6 flex max-w-md flex-col gap-3 text-left text-sm">
+              <div className="flex items-start gap-3">
+                <span className="shrink-0">1️⃣</span>
+                <span>Upload a photo of any receipt — a coffee, a flight, a laptop.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="shrink-0">2️⃣</span>
+                <span>AI reads the vendor, date, amount, and picks a category for you.</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="shrink-0">3️⃣</span>
+                <span>Tap any field to fix anything it got wrong — it saves instantly.</span>
+              </div>
+            </div>
           </div>
         ) : (
           receipts.map((receipt) => (
