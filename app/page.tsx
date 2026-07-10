@@ -1,21 +1,33 @@
 import { getCategories, getReceipts } from "@/lib/receipts";
+import { createClient } from "@/lib/supabase/server";
+import { getVisitorId } from "@/lib/visitor";
+import { getSubscriptionForUser, isPro } from "@/lib/subscription";
+import { FREE_SCAN_LIMIT, scansThisMonth } from "@/lib/scanLimit";
 import { ReceiptsApp } from "@/components/ReceiptsApp";
+import { Header } from "@/components/Header";
 
 export default async function Home() {
   const [categories, receipts] = await Promise.all([getCategories(), getReceipts()]);
 
+  const visitorId = await getVisitorId();
+  const subscription = await getSubscriptionForUser(visitorId);
+  let uploadDisabled = false;
+  if (visitorId && !isPro(subscription)) {
+    const supabase = await createClient();
+    const used = await scansThisMonth(supabase, visitorId);
+    uploadDisabled = used >= FREE_SCAN_LIMIT;
+  }
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
-          🧾 Smart Receipt Scanner
-        </h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Snap a receipt, let AI file the expense, correct anything it gets wrong.
-        </p>
-      </header>
+      <Header />
 
-      <ReceiptsApp initialReceipts={receipts} categories={categories} />
+      <ReceiptsApp
+        initialReceipts={receipts}
+        categories={categories}
+        uploadDisabled={uploadDisabled}
+        uploadDisabledReason="You've used your 5 free scans — upgrade to continue"
+      />
     </main>
   );
 }

@@ -3,6 +3,8 @@ import { getVisitorId } from "@/lib/visitor";
 import { scanReceipt } from "@/lib/openai";
 import { assignCategory } from "@/lib/categorize";
 import { writeAuditLog } from "@/lib/audit";
+import { getSubscriptionForUser, isPro } from "@/lib/subscription";
+import { FREE_SCAN_LIMIT, scansThisMonth } from "@/lib/scanLimit";
 import { NextResponse } from "next/server";
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // base64 data URL, ~4.5MB decoded image
@@ -27,6 +29,19 @@ export async function POST(request: Request) {
 
     const supabase = await createClient();
     const visitorId = await getVisitorId();
+
+    if (visitorId) {
+      const subscription = await getSubscriptionForUser(visitorId);
+      if (!isPro(subscription)) {
+        const used = await scansThisMonth(supabase, visitorId);
+        if (used >= FREE_SCAN_LIMIT) {
+          return NextResponse.json(
+            { error: "You've used your 5 free scans — upgrade to continue" },
+            { status: 403 },
+          );
+        }
+      }
+    }
 
     const { data: categories, error: catError } = await supabase
       .from("categories")

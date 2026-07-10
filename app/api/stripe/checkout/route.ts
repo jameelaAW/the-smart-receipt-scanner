@@ -1,51 +1,37 @@
-import { createClient } from "@/lib/supabase/server";
-import { createCheckoutSession } from "@/lib/stripe";
+import { createCheckoutSession, isStripeConfigured } from "@/lib/stripe";
+import { getVisitorId } from "@/lib/visitor";
+import { getSubscriptionForUser } from "@/lib/subscription";
 import { NextResponse } from "next/server";
 
 /**
  * POST /api/stripe/checkout
- * Body: { priceId: string, successUrl?: string, cancelUrl?: string }
  *
- * Creates a Stripe Checkout Session for the authenticated user.
- * Respects Connect platform fee if STRIPE_PLATFORM_FEE_PERCENT is set.
+ * v1 has no login wall (PRD.md) — the visitor-id cookie set by middleware.ts
+ * stands in for a user id until Sprint 4 auth lands. Creates a Stripe
+ * Checkout Session for the Pro monthly plan and returns its URL.
  */
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isStripeConfigured()) {
+      return NextResponse.json(
+        { error: "Billing isn't configured yet — add STRIPE_SECRET_KEY and a price ID to enable checkout." },
+        { status: 503 },
+      );
     }
 
-    const body = await request.json();
-    const { priceId, successUrl, cancelUrl } = body as {
-      priceId: string;
-      successUrl?: string;
-      cancelUrl?: string;
-    };
-
-    if (!priceId) {
-      return NextResponse.json({ error: "priceId is required" }, { status: 400 });
+    const visitorId = await getVisitorId();
+    if (!visitorId) {
+      return NextResponse.json({ error: "Missing visitor session — reload the page" }, { status: 400 });
     }
 
+    const existing = await getSubscriptionForUser(visitorId);
     const origin = request.headers.get("origin") ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
 
-    // Look up existing Stripe customer ID if stored
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("stripe_customer_id")
-      .eq("id", user.id)
-      .single();
-
     const session = await createCheckoutSession({
-      priceId,
-      customerId: profile?.stripe_customer_id ?? undefined,
-      userId: user.id,
-      successUrl: successUrl ?? `${origin}/dashboard?checkout=success`,
-      cancelUrl: cancelUrl ?? `${origin}/dashboard?checkout=canceled`,
+      customerId: existing?.stripe_customer_id,
+      userId: visitorId,
+      successUrl: `${origin}/success`,
+      cancelUrl: `${origin}/cancel`,
     });
 
     return NextResponse.json({ url: session.url });
