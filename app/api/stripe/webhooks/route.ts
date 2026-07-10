@@ -1,4 +1,4 @@
-import { constructWebhookEvent } from "@/lib/stripe";
+import { constructWebhookEvent, stripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/lib/audit";
 import { NextResponse } from "next/server";
@@ -12,6 +12,11 @@ import type Stripe from "stripe";
  * alone (SECURITY.md). Register in Stripe dashboard -> Webhooks:
  *   checkout.session.completed, customer.subscription.updated,
  *   customer.subscription.deleted, invoice.payment_failed
+ *
+ * Stripe's dashboard destinations can send a "Thin" payload (id only) instead
+ * of a full object snapshot. Every case below re-fetches the object by id
+ * from the Stripe API instead of trusting event.data.object's fields, so this
+ * works with either payload style.
  */
 export async function POST(request: Request) {
   const payload = await request.text();
@@ -65,7 +70,8 @@ export async function POST(request: Request) {
   try {
     switch (event.type) {
       case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
+        const sessionId = (event.data.object as Stripe.Checkout.Session).id;
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
         const userId = session.metadata?.userId;
         if (!userId) break;
 
@@ -83,7 +89,8 @@ export async function POST(request: Request) {
 
       case "customer.subscription.updated":
       case "customer.subscription.created": {
-        const sub = event.data.object as Stripe.Subscription;
+        const subId = (event.data.object as Stripe.Subscription).id;
+        const sub = await stripe.subscriptions.retrieve(subId);
         let userId = sub.metadata?.userId;
 
         if (!userId) {
@@ -106,17 +113,17 @@ export async function POST(request: Request) {
       }
 
       case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
+        const subId = (event.data.object as Stripe.Subscription).id;
         await supabase
           .from("subscriptions")
           .update({ status: "canceled", plan: "free" })
-          .eq("stripe_subscription_id", sub.id);
+          .eq("stripe_subscription_id", subId);
         break;
       }
 
       case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        console.warn("[stripe/webhooks] payment failed for customer:", invoice.customer);
+        const invoiceId = (event.data.object as Stripe.Invoice).id;
+        console.warn("[stripe/webhooks] payment failed, invoice:", invoiceId);
         break;
       }
 
