@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { resizeImageToDataUrl } from "@/lib/resizeImage";
 import type { Receipt } from "@/lib/types";
 
@@ -10,10 +11,13 @@ export function UploadWidget({
   onScanned,
   disabled,
   disabledReason,
+  signInRequired,
 }: {
   onScanned: (receipt: Receipt, warning?: string) => void;
   disabled?: boolean;
   disabledReason?: string;
+  /** TASKS.md Sprint 4: unauthenticated visitors see demo only; prompt to sign up. */
+  signInRequired?: boolean;
 }) {
   const [status, setStatus] = useState<"idle" | "uploading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +58,20 @@ export function UploadWidget({
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }
+  }
+
+  if (signInRequired) {
+    return (
+      <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-6 text-center text-sm text-neutral-500">
+        <p>Sign up to scan and save your own receipts.</p>
+        <Link
+          href="/login"
+          className="mt-3 inline-block rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
+        >
+          Sign up / sign in
+        </Link>
+      </div>
+    );
   }
 
   if (disabled) {

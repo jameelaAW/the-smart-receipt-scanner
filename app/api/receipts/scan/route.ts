@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getVisitorId } from "@/lib/visitor";
+import { getIdentity } from "@/lib/identity";
 import { scanReceipt } from "@/lib/openai";
 import { assignCategory } from "@/lib/categorize";
 import { writeAuditLog } from "@/lib/audit";
@@ -28,18 +28,25 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient();
-    const visitorId = await getVisitorId();
+    const { userId, isAuthenticated } = await getIdentity();
 
-    if (visitorId) {
-      const subscription = await getSubscriptionForUser(visitorId);
-      if (!isPro(subscription)) {
-        const used = await scansThisMonth(supabase, visitorId);
-        if (used >= FREE_SCAN_LIMIT) {
-          return NextResponse.json(
-            { error: "You've used your 5 free scans — upgrade to continue" },
-            { status: 403 },
-          );
-        }
+    // TASKS.md Sprint 4: "Gate scan endpoint: unauthenticated users see demo
+    // only; prompt to sign up."
+    if (!isAuthenticated || !userId) {
+      return NextResponse.json(
+        { error: "Sign up to start scanning receipts", signUpRequired: true },
+        { status: 401 },
+      );
+    }
+
+    const subscription = await getSubscriptionForUser(userId);
+    if (!isPro(subscription)) {
+      const used = await scansThisMonth(supabase, userId);
+      if (used >= FREE_SCAN_LIMIT) {
+        return NextResponse.json(
+          { error: "You've used your 5 free scans — upgrade to continue" },
+          { status: 403 },
+        );
       }
     }
 
@@ -55,7 +62,7 @@ export async function POST(request: Request) {
     if (!extraction) {
       // ARCHITECTURE.md "Core Without AI": nothing breaks, user fills in manually.
       insertRow = {
-        user_id: visitorId,
+        user_id: userId,
         image_url: imageDataUrl,
         review_status: "manual_entry",
       };
@@ -70,7 +77,7 @@ export async function POST(request: Request) {
       );
 
       insertRow = {
-        user_id: visitorId,
+        user_id: userId,
         image_url: imageDataUrl,
         vendor: extraction.vendor,
         vendor_source: "ai",
@@ -97,7 +104,7 @@ export async function POST(request: Request) {
     if (insertError) throw new Error(insertError.message);
 
     await writeAuditLog(supabase, {
-      user_id: visitorId,
+      user_id: userId,
       action: extraction ? "scan_receipt" : "scan_receipt_failed",
       object_type: "receipt",
       object_id: receipt.id,

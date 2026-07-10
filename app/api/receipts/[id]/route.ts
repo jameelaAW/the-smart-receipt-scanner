@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getVisitorId } from "@/lib/visitor";
+import { getIdentity } from "@/lib/identity";
 import { writeAuditLog } from "@/lib/audit";
 import { NextResponse } from "next/server";
 
@@ -30,7 +30,7 @@ export async function PATCH(
     }
 
     const supabase = await createClient();
-    const visitorId = await getVisitorId();
+    const { userId } = await getIdentity();
 
     const { data: existing, error: fetchError } = await supabase
       .from("receipts")
@@ -61,7 +61,7 @@ export async function PATCH(
     if (updateError) throw new Error(updateError.message);
 
     await writeAuditLog(supabase, {
-      user_id: visitorId,
+      user_id: userId,
       action: "edit_field",
       object_type: "receipt",
       object_id: id,

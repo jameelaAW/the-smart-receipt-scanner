@@ -12,11 +12,13 @@ export function ReceiptsApp({
   categories,
   uploadDisabled,
   uploadDisabledReason,
+  signInRequired,
 }: {
   initialReceipts: Receipt[];
   categories: Category[];
   uploadDisabled?: boolean;
   uploadDisabledReason?: string;
+  signInRequired?: boolean;
 }) {
   const [receipts, setReceipts] = useState(initialReceipts);
   const [banner, setBanner] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export function ReceiptsApp({
           onScanned={handleScanned}
           disabled={uploadDisabled}
           disabledReason={uploadDisabledReason}
+          signInRequired={signInRequired}
         />
         {banner && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{banner}</p>

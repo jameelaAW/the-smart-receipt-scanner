@@ -13,6 +13,10 @@ export function UpgradeButton() {
       const res = await fetch("/api/stripe/checkout", { method: "POST" });
       const json = await res.json();
       if (!res.ok) {
+        if (json.signUpRequired) {
+          window.location.href = "/login";
+          return;
+        }
         setError(json.error ?? "Couldn't start checkout");
         setLoading(false);
         return;

@@ -1,10 +1,11 @@
-import { getVisitorId } from "@/lib/visitor";
+import { getIdentity } from "@/lib/identity";
 import { getSubscriptionForUser, isPro } from "@/lib/subscription";
 import { UpgradeButton } from "@/components/UpgradeButton";
+import { AuthStatus } from "@/components/AuthStatus";
 
 export async function Header() {
-  const visitorId = await getVisitorId();
-  const subscription = await getSubscriptionForUser(visitorId);
+  const { userId, email } = await getIdentity();
+  const subscription = await getSubscriptionForUser(userId);
   const pro = isPro(subscription);
 
   return (
@@ -18,13 +19,16 @@ export async function Header() {
         </p>
       </div>
 
-      {pro ? (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white">
-          ⭐ Pro
-        </span>
-      ) : (
-        <UpgradeButton />
-      )}
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        {pro ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white">
+            ⭐ Pro
+          </span>
+        ) : (
+          <UpgradeButton />
+        )}
+        <AuthStatus email={email} />
+      </div>
     </header>
   );
 }

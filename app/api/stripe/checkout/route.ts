@@ -1,14 +1,13 @@
 import { createCheckoutSession, isStripeConfigured } from "@/lib/stripe";
-import { getVisitorId } from "@/lib/visitor";
+import { getIdentity } from "@/lib/identity";
 import { getSubscriptionForUser } from "@/lib/subscription";
 import { NextResponse } from "next/server";
 
 /**
  * POST /api/stripe/checkout
  *
- * v1 has no login wall (PRD.md) — the visitor-id cookie set by middleware.ts
- * stands in for a user id until Sprint 4 auth lands. Creates a Stripe
- * Checkout Session for the Pro monthly plan and returns its URL.
+ * PRD.md's success scenario has no login wall "until checkout" — so this is
+ * the one point in the app that requires a real signed-in user (Sprint 4).
  */
 export async function POST(request: Request) {
   try {
@@ -19,17 +18,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const visitorId = await getVisitorId();
-    if (!visitorId) {
-      return NextResponse.json({ error: "Missing visitor session — reload the page" }, { status: 400 });
+    const { userId, isAuthenticated } = await getIdentity();
+    if (!isAuthenticated || !userId) {
+      return NextResponse.json(
+        { error: "Sign up to upgrade to Pro", signUpRequired: true },
+        { status: 401 },
+      );
     }
 
-    const existing = await getSubscriptionForUser(visitorId);
+    const existing = await getSubscriptionForUser(userId);
     const origin = request.headers.get("origin") ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
 
     const session = await createCheckoutSession({
       customerId: existing?.stripe_customer_id,
-      userId: visitorId,
+      userId,
       successUrl: `${origin}/success`,
       cancelUrl: `${origin}/cancel`,
     });
