@@ -5,6 +5,8 @@ const RULES: { keywords: string[]; category: string }[] = [
   { keywords: ["delta", "united", "uber", "lyft"], category: "Travel" },
   { keywords: ["restaurant", "grill", "café", "cafe"], category: "Meals & Entertainment" },
   { keywords: ["amazon", "best buy"], category: "Equipment" },
+  { keywords: ["rent", "landlord", "property management", "lease"], category: "Rent" },
+  { keywords: ["taxi", "cab", "metro", "subway", "bus fare", "parking", "toll"], category: "Local Transport" },
 ];
 
 export const UNCATEGORIZED = "Uncategorized";
