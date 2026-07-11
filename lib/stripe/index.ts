@@ -31,7 +31,10 @@ export async function createCheckoutSession({
     cancel_url: cancelUrl,
     metadata: { userId },
     subscription_data: { metadata: { userId } },
-    ...(customerId ? { customer: customerId } : { customer_creation: "always" }),
+    // Subscription-mode sessions always create a customer automatically —
+    // `customer_creation` is only a valid param when mode is "payment" and
+    // Stripe rejects the request outright if it's passed here.
+    ...(customerId ? { customer: customerId } : {}),
   });
 }
 
